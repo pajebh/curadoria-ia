@@ -1,0 +1,19 @@
+-r requirements.txt
+
+# Testes
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+factory-boy==3.3.1
+freezegun==1.5.1
+fakeredis==2.26.2
+testcontainers[postgresql]==4.8.2
+httpx==0.28.1   # AsyncClient para testes
+
+# Linting / formatação
+ruff==0.8.6
+mypy==1.14.0
+
+# Tipos
+types-passlib==1.7.7.20240819
+types-python-jose==3.3.4.20240106

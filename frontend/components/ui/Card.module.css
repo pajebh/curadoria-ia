@@ -1,0 +1,15 @@
+.card {
+  background: var(--color-paper);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Assinaturas cromáticas por categoria */
+.formal       { border-left: 3px solid var(--color-formal);       background: var(--color-formal-bg); }
+.visual       { border-left: 3px solid var(--color-visual);       background: var(--color-visual-bg); }
+.leitura      { border-left: 3px solid var(--color-leitura);      background: var(--color-leitura-bg); }
+.audio        { border-left: 3px solid var(--color-audio);        background: var(--color-audio-bg); }
+.experiencias { border-left: 3px solid var(--color-experiencias); background: var(--color-experiencias-bg); }
+.referencias  { border-left: 3px solid var(--color-referencias);  background: var(--color-referencias-bg); }

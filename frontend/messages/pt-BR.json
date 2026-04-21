@@ -1,0 +1,87 @@
+{
+  "app": {
+    "name": "CuradorIA",
+    "tagline": "Seu arquiteto de aprendizagem holística"
+  },
+  "home": {
+    "headline": "O que você quer aprender?",
+    "tema_label": "Tema",
+    "tema_placeholder": "Ex: História da Arte Renascentista, Jazz, Python...",
+    "tempo_label": "Em quanto tempo?",
+    "tempo_valor_label": "Quantidade",
+    "tempo_unidade_label": "Período",
+    "submit": "Gerar plano cultural",
+    "planos_recentes": "Seus planos recentes",
+    "sem_planos": "Nenhum plano ainda. Crie o primeiro acima!",
+    "unidades": {
+      "dias": "dias",
+      "semanas": "semanas",
+      "meses": "meses"
+    }
+  },
+  "plano": {
+    "voltar": "Voltar",
+    "itens_concluidos": "{done} de {total} itens",
+    "progresso_label": "Progresso do plano",
+    "apagar": "Apagar plano",
+    "apagar_confirmacao": "Tem certeza? Esta ação não pode ser desfeita.",
+    "apagar_confirmar": "Sim, apagar",
+    "apagar_cancelar": "Cancelar",
+    "gerando": "Gerando seu plano...",
+    "erro_geracao": "Não foi possível gerar o plano. Tente novamente.",
+    "tentar_novamente": "Tentar novamente",
+    "categorias": {
+      "formal": "Aulas & Cursos",
+      "visual": "Olhares em Movimento",
+      "leitura": "Leitura",
+      "audio": "Escuta",
+      "experiencias": "Experiência",
+      "referencias": "Vozes"
+    },
+    "item_concluido": "Marcar como concluído",
+    "item_pendente": "Marcar como pendente",
+    "abrir_link": "Abrir recurso (abre em nova aba)"
+  },
+  "historico": {
+    "titulo": "Seus planos",
+    "sem_historico": "Nenhum plano encontrado.",
+    "criar_primeiro": "Criar primeiro plano"
+  },
+  "privacidade": {
+    "titulo": "Política de Privacidade",
+    "intro": "O CuradorIA foi construído com privacidade como princípio central."
+  },
+  "configuracoes": {
+    "titulo": "Configurações",
+    "deletar_dados": "Apagar meus dados",
+    "deletar_descricao": "Remove todos os seus planos e dados de sessão permanentemente.",
+    "deletar_confirmacao": "Todos os dados serão apagados permanentemente. Continuar?",
+    "deletar_sucesso": "Seus dados foram apagados com sucesso.",
+    "exportar_dados": "Exportar meus dados"
+  },
+  "erros": {
+    "generico": "Algo deu errado. Tente novamente em instantes.",
+    "sessao_invalida": "Sua sessão expirou. Recarregue a página.",
+    "rate_limit": "Você atingiu o limite de requisições. Tente em {minutos} minutos.",
+    "tema_muito_curto": "O tema precisa ter pelo menos 3 caracteres.",
+    "tema_muito_longo": "O tema pode ter no máximo 200 caracteres.",
+    "tempo_invalido": "Informe um valor entre 1 e 24.",
+    "tema_inseguro": "Por favor, descreva o assunto que você quer aprender.",
+    "offline": "Sem conexão com a internet. Verifique sua rede.",
+    "provider_indisponivel": "Usando provedor de IA alternativo. O plano pode demorar um pouco mais."
+  },
+  "a11y": {
+    "menu": "Abrir menu",
+    "fechar": "Fechar",
+    "carregando": "Carregando...",
+    "progresso_sse": "Gerando plano: {percent}% — {stage}",
+    "categoria_expandida": "{nome} expandida",
+    "categoria_recolhida": "{nome} recolhida",
+    "checkbox_item": "Item {nome}: {status}"
+  },
+  "lgpd": {
+    "banner_texto": "Usamos apenas cookies essenciais de sessão, sem rastreamento.",
+    "banner_aceitar": "Entendido",
+    "banner_saiba_mais": "Saiba mais"
+  }
+}
