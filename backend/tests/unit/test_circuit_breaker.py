@@ -39,6 +39,7 @@ def test_fecha_apos_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
         cb.record_failure()
     assert cb.is_open()
 
-    # simula passagem de tempo
-    monkeypatch.setattr(time, "monotonic", lambda: time.monotonic() + 11)
+    # captura o tempo atual ANTES do patch para evitar recursão no lambda
+    future = time.monotonic() + 11
+    monkeypatch.setattr(time, "monotonic", lambda: future)
     assert not cb.is_open()
