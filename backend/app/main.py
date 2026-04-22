@@ -71,7 +71,8 @@ async def security_headers(request: Request, call_next):  # type: ignore[no-unty
         response.headers["Strict-Transport-Security"] = (
             "max-age=63072000; includeSubDomains; preload"
         )
-    response.headers.pop("server", None)
+    if "server" in response.headers:
+        del response.headers["server"]
     return response
 
 
