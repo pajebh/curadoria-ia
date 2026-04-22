@@ -1,9 +1,12 @@
-from pydantic import AnyUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # Banco
     database_url: str
@@ -28,15 +31,12 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
     logtail_token: str = ""
 
-    # CORS
-    cors_origins: list[str] = ["http://localhost:3000"]
+    # CORS — str simples para evitar JSON-parse do pydantic-settings v2
+    cors_origins: str = "http://localhost:3000"
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors(cls, v: str | list[str]) -> list[str]:
-        if isinstance(v, str):
-            return [o.strip() for o in v.split(",")]
-        return v
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",")]
 
     @property
     def is_production(self) -> bool:
