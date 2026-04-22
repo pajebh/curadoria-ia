@@ -2,9 +2,9 @@
 
 > Arquiteto de Aprendizagem Holística e Curador Cultural: gera planos de estudo personalizados com 6 categorias (Formal, Visual, Leitura, Áudio, Experiências, Referências), usando apenas ferramentas 100% gratuitas.
 
-**Versão**: 1.0 (design fase concluída)
+**Versão**: 1.1 (v1 implementada e em produção)
 **Data**: 2026-04-21
-**Status**: Pronto para implementação
+**Status**: Em produção — Backend: `https://curadoria-ia.onrender.com` · Frontend: `https://curadoria-ia-sigma.vercel.app`
 
 ---
 
@@ -23,7 +23,8 @@
 11. [Etapa 10 — Code Review (Design Review)](#etapa-10--code-review-design-review)
 12. [Etapa 11 — Threat Model (STRIDE)](#etapa-11--threat-model-stride)
 13. [Etapa 12 — DevOps Blueprint](#etapa-12--devops-blueprint)
-14. [Resumo Executivo](#resumo-executivo)
+14. [Etapa 13 — Decisões de Implementação (v1)](#etapa-13--decisões-de-implementação-v1)
+15. [Resumo Executivo](#resumo-executivo)
 
 ---
 
@@ -49,7 +50,7 @@ CuradorIA cria planos de estudo culturais e holísticos: dado um tema e um tempo
 | Cache | Upstash Redis | 10k cmd/dia |
 | IA primária | Groq (Llama 3.3 70B) | 14.4k req/dia |
 | IA fallback | Google Gemini 2.0 Flash | 1.5k req/dia |
-| Deploy BE | Fly.io | 3 VMs shared-cpu-1x |
+| Deploy BE | Render (Web Service) | 512 MB, sem cartão |
 | Deploy FE | Vercel Hobby | 100 GB-h |
 | CI/CD | GitHub Actions | 2.000 min/mês |
 | Erros | Sentry Developer | 5k/mês |
@@ -119,7 +120,7 @@ CuradorIA cria planos de estudo culturais e holísticos: dado um tema e um tempo
 
 ```
 ┌───────────────┐        HTTPS         ┌──────────────────────┐
-│  Next.js 15   │◀──────SSE────────────│   FastAPI (Fly.io)   │
+│  Next.js 15   │◀──────SSE────────────│   FastAPI (Render)   │
 │  (Vercel)     │─────cookieAuth──────▶│   ┌────────────────┐ │
 │               │                      │   │ sessões module │ │
 │ React 19      │                      │   │ planos  module │ │
@@ -153,8 +154,9 @@ CuradorIA cria planos de estudo culturais e holísticos: dado um tema e um tempo
 - **Consequência**: resiliência sem custo; troca de provider é trivial.
 
 **ADR-003: Anônimo via JWT cookie HttpOnly**
-- **Decisão**: ao primeiro acesso, middleware cria sessão; token JWT `SameSite=Strict`, `Secure`, `HttpOnly`, TTL 180d.
-- **Consequência**: sem PII, proteção contra CSRF/XSS, migração para auth v2 mantém o scheme.
+- **Decisão**: ao primeiro acesso, `SessionProvider` (client component) chama `POST /sessoes`; token JWT `SameSite=None`, `Secure`, `HttpOnly`, TTL 180d.
+- **Consequência**: sem PII, proteção contra XSS; `SameSite=None` é necessário porque frontend (Vercel) e backend (Render) são domínios diferentes — `SameSite=Strict` bloquearia o cookie em requisições cross-origin.
+- **Nota de implementação**: a abordagem original usava Next.js middleware server-side para criar a sessão, mas o cookie ficava associado ao domínio Vercel em vez de Render, quebrando a autenticação. A solução foi criar a sessão diretamente do browser.
 
 **ADR-004: ~~Web search antes de recomendar~~** (revogada)
 - Revogada por custo de latência. Validação de links tratada via cron mensal.
@@ -168,17 +170,18 @@ CuradorIA cria planos de estudo culturais e holísticos: dado um tema e um tempo
 - **Decisão**: Neon (3 GB, autoscale, sem pause).
 - **Consequência**: sem downtime por inatividade; sem auth built-in (não precisamos em v1).
 
-**ADR-007: Fly.io em vez de Railway**
-- **Contexto**: Railway removeu tier gratuito.
-- **Decisão**: Fly.io com 2 VMs `shared-cpu-1x` 256 MB, `auto_stop_machines=false`.
-- **Consequência**: HA mínima, sem cold start (crítico para SSE).
+**ADR-007: Render em vez de Fly.io**
+- **Contexto**: Fly.io exige cartão de crédito mesmo no tier gratuito, gerando risco de cobrança acidental.
+- **Decisão**: Render Web Service com Docker runtime, 512 MB, deploy via `render.yaml` commitado no repositório.
+- **Consequência**: sem cartão obrigatório; cold starts ocorrem após inatividade (tier free); SSE funciona pois a conexão é persistente e o Render roteia para a mesma instância; `auto_stop` desativado via `render.yaml`.
+- **Limitação conhecida**: Render free tem timeout de 55s em requisições HTTP normais; SSE é persistente e não é afetado. Geração de IA completa em ~15-25s, dentro do limite.
 
 ### 2.3 Riscos arquiteturais
 | Risco | Probabilidade | Impacto | Mitigação |
 |---|---|---|---|
 | Quota Groq esgotada | Média | Alto | Fallback Gemini + circuit breaker |
 | Neon 3GB insuficiente | Baixa | Médio | Purga diária + TTL 180d + alerta 80% |
-| Fly VM OOM (256MB) | Média | Médio | 2 VMs, workers=1, uvloop, sem ORM eager loading |
+| Render OOM (512MB) | Baixa | Médio | workers=1, sem eager loading, restart automático pelo Render |
 | Prompt injection | Alta | Alto | 3 camadas de defesa (moderação + delimiters + validator) |
 | Links quebrados | Alta | Médio | Prompt restringe a fontes notórias + cron mensal de validação |
 
@@ -187,11 +190,11 @@ CuradorIA cria planos de estudo culturais e holísticos: dado um tema e um tempo
 ## Etapa 3 — Design de API
 
 ### 3.1 Convenções
-- **Base URL**: `https://curadoria-api.fly.dev/v1`
+- **Base URL**: `https://curadoria-ia.onrender.com/v1`
 - **Content-Type**: `application/json; charset=utf-8`
 - **Erros**: RFC 7807 Problem Details
 - **Datas**: ISO 8601 UTC
-- **Auth**: cookie `session_token` (JWT HttpOnly, SameSite=Strict)
+- **Auth**: cookie `session_token` (JWT HttpOnly, SameSite=None, Secure)
 - **Idempotência**: header `Idempotency-Key` em POSTs não-idempotentes
 
 ### 3.2 OpenAPI 3.1 (trecho core)
@@ -202,7 +205,7 @@ info:
   title: CuradorIA API
   version: 1.0.0
 servers:
-  - url: https://curadoria-api.fly.dev/v1
+  - url: https://curadoria-ia.onrender.com/v1
 
 components:
   securitySchemes:
@@ -295,13 +298,13 @@ paths:
       summary: Apagar plano
       responses: { '204': { description: Sem conteúdo } }
 
-  /sessoes/{id}/planos:
+  /sessoes/me/planos:
     get:
-      summary: Histórico da sessão
+      summary: Histórico da sessão atual
       parameters:
         - in: query
           name: cursor
-          schema: { type: string }
+          schema: { type: string, format: uuid }
       responses:
         '200':
           content:
@@ -328,6 +331,19 @@ paths:
     delete:
       summary: Deletar todos os dados da sessão (LGPD)
       responses: { '204': { description: Dados apagados } }
+
+  /health:
+    get:
+      summary: Health check básico
+      security: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [ok] }
 
   /health/ia:
     get:
@@ -712,26 +728,29 @@ frontend/
 - **Radix UI Primitives** (accessibility built-in).
 - **Phosphor Icons** (duotone).
 
-### 6.3 Middleware de bootstrap de sessão
+### 6.3 Bootstrap de sessão (client-side)
+
+A abordagem original usava Next.js middleware server-side para criar a sessão. **Não funciona** em deploy separado (Vercel + Render): o cookie retornado pelo backend fica associado ao domínio Vercel, não ao Render, e nunca é enviado nas requisições subsequentes.
+
+**Solução implementada**: `SessionProvider` como client component no layout raiz, que chama `POST /sessoes` diretamente do browser na montagem inicial. O browser armazena o cookie para o domínio `onrender.com` e o envia automaticamente em todas as requisições posteriores.
 
 ```ts
-// middleware.ts
-import { NextResponse, type NextRequest } from 'next/server';
+// components/SessionProvider.tsx
+'use client';
+import { useEffect } from 'react';
+import { api } from '@/lib/api/client';
 
-export async function middleware(req: NextRequest) {
-  if (req.cookies.has('session_token')) return NextResponse.next();
-
-  const res = await fetch(`${process.env.API_URL}/v1/sessoes`, { method: 'POST' });
-  const setCookie = res.headers.get('set-cookie');
-  const response = NextResponse.next();
-  if (setCookie) response.headers.set('set-cookie', setCookie);
-  return response;
+export function SessionProvider({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    api.post('/sessoes', {}).catch(() => {});
+  }, []);
+  return <>{children}</>;
 }
-
-export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon|api/health).*)'],
-};
 ```
+
+O `middleware.ts` está presente mas com matcher vazio — mantido para futuras necessidades (ex: proteção de rotas).
+
+**Pré-requisito**: `credentials: 'include'` em todos os fetches (já configurado em `lib/api/client.ts`) + CORS `allow_credentials=True` + cookie `SameSite=None; Secure` no backend.
 
 ### 6.4 Hook SSE
 
@@ -950,7 +969,9 @@ async def security_headers(request, call_next):
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains; preload"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-    response.headers.pop("Server", None)
+    # MutableHeaders não tem .pop() — usar del com guarda
+    if "server" in response.headers:
+        del response.headers["server"]
     return response
 ```
 
@@ -1076,7 +1097,7 @@ Modelo de ameaças sobre o **design** do sistema. 38 ameaças mapeadas em 6 cate
 
 | Categoria | Ameaças | Mitigações principais |
 |---|---|---|
-| **S**poofing | 5 | JWT HttpOnly SameSite=Strict; sem PII; cookie rotation opcional v2 |
+| **S**poofing | 5 | JWT HttpOnly SameSite=None+Secure; sem PII; cookie rotation opcional v2 |
 | **T**ampering | 7 | Pydantic validators; CHECK constraints no banco; RLS; HTTPS obrigatório |
 | **R**epudiation | 4 | Tabelas `plan_events` e `lgpd_deletions` como audit log; logs estruturados |
 | **I**nformation disclosure | 9 | RLS por sessão; role `curadoria_app` mínima; secrets via Fly secrets; headers sem `Server` |
@@ -1126,31 +1147,48 @@ Modelo de ameaças sobre o **design** do sistema. 38 ameaças mapeadas em 6 cate
 - **security.yml**: CodeQL semanal, OSV scanner, ZAP baseline.
 
 ### 12.2 Deploy
-- **Backend (Fly.io)**: `alembic upgrade head` → `fly deploy --strategy rolling` com 2 VMs, health checks, smoke test pós-deploy.
-- **Frontend (Vercel)**: preview em PRs, promoção automática em merge para `main`, instant rollback via dashboard.
+- **Backend (Render)**: `render.yaml` commitado no repositório; Render detecta e cria o serviço automaticamente. Dockerfile executa `alembic upgrade head && uvicorn app.main:app`. Deploy automático em push para `main`. Rollback via dashboard (re-deploy de deploy anterior).
+- **Frontend (Vercel)**: `Root Directory: frontend` configurado no dashboard. Deploy automático em push para `main`. Preview automático em PRs. Variável `NEXT_PUBLIC_API_URL=https://curadoria-ia.onrender.com` configurada nas env vars.
 
 ### 12.3 Cron jobs
 - **LGPD purge** (diário 03:00 UTC): apaga sessões expiradas, registra em `lgpd_deletions`.
 - **Link validation** (mensal): valida URLs de todos os planos, gera relatório.
 
-### 12.4 fly.toml (backend)
-```toml
-app = "curadoria-api"
-primary_region = "gru"
+### 12.4 render.yaml (backend)
+```yaml
+services:
+  - type: web
+    name: curadoria-ia
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        sync: false   # valor: URL do frontend Vercel
+    healthCheckPath: /v1/health
+```
 
-[http_service]
-  internal_port = 8000
-  force_https = true
-  auto_stop_machines = false     # crítico para SSE
-  min_machines_running = 2       # HA mínima
-
-  [[http_service.checks]]
-    path = "/v1/health/ia"
-    interval = "30s"
-
-[[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
+**Dockerfile** (backend):
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1"]
 ```
 
 ### 12.5 Observabilidade
@@ -1182,7 +1220,7 @@ Sampling: 100% WARN+ERROR, 10% INFO.
 | Groq down | Circuit breaker → fallback Gemini automático |
 | Neon 80% cheio | Purge manual; revisão de retenção |
 | Ambas cotas IA esgotadas | Modo manutenção + aviso |
-| Fly crashloop | Rollback automático via rolling strategy |
+| Render crashloop | Rollback via dashboard (re-deploy de build anterior) |
 | Secret vazado | Rotação imediata + invalidação de JWT_SECRET (logout global) |
 
 ### 12.9 Checklist Go-Live (24 itens)
@@ -1219,6 +1257,114 @@ Sampling: 100% WARN+ERROR, 10% INFO.
 
 ---
 
+## Etapa 13 — Decisões de Implementação (v1)
+
+Decisões técnicas descobertas durante a implementação que divergem ou complementam o design original.
+
+### 13.1 Compatibilidade asyncpg
+
+**Problema**: `DATABASE_URL` do Neon vem com `?sslmode=require&channel_binding=require`. O asyncpg não aceita esses parâmetros como query string — lança `InvalidAuthorizationSpecificationError`.
+
+**Solução**: função `_parse_db_url()` em `core/db.py` que:
+1. Remove `sslmode` da query string e o converte para `connect_args={"ssl": True}` se valor for `require/verify-ca/verify-full`.
+2. Remove `channel_binding` (não suportado pelo asyncpg).
+
+```python
+def _parse_db_url(url: str) -> tuple[str, dict]:
+    parsed = urlparse(url)
+    params = parse_qs(parsed.query, keep_blank_values=True)
+    sslmode = params.pop("sslmode", [None])[0]
+    params.pop("channel_binding", None)
+    new_query = urlencode({k: v[0] for k, v in params.items()})
+    clean_url = urlunparse(parsed._replace(query=new_query))
+    connect_args: dict = {}
+    if sslmode in ("require", "verify-ca", "verify-full"):
+        connect_args["ssl"] = True
+    return clean_url, connect_args
+```
+
+### 13.2 SET LOCAL com asyncpg
+
+**Problema**: `SET LOCAL app.session_id = $1` com parâmetro posicional falha com asyncpg — retorna erro de sintaxe.
+
+**Solução**: usar f-string com UUID já validado pelo tipo Python (seguro contra injection):
+
+```python
+await session.execute(
+    text(f"SET LOCAL app.session_id = '{session_id}'")
+)
+```
+
+O `session_id` é um `UUID` Python, impossível de conter SQL injection.
+
+### 13.3 Datetimes e Neon
+
+**Problema**: colunas `TIMESTAMP WITHOUT TIME ZONE` no Neon rejeitam `datetime` com timezone (`datetime.now(timezone.utc)`).
+
+**Solução**: helper `_utcnow()` em todos os modelos e services:
+
+```python
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+```
+
+### 13.4 pydantic-settings e listas
+
+**Problema**: `cors_origins: list[str]` em pydantic-settings v2 tenta fazer JSON-parse do valor da env var — `"http://localhost:3000"` vira erro de parse.
+
+**Solução**: declarar como `str` e expor como property:
+
+```python
+cors_origins: str = "http://localhost:3000"
+
+@property
+def cors_origins_list(self) -> list[str]:
+    return [o.strip() for o in self.cors_origins.split(",")]
+```
+
+### 13.5 MutableHeaders não tem .pop()
+
+**Problema**: `response.headers.pop("server", None)` lança `AttributeError` — `MutableHeaders` do Starlette não implementa `.pop()`.
+
+**Solução**:
+```python
+if "server" in response.headers:
+    del response.headers["server"]
+```
+
+### 13.6 SSE com asyncio.Queue em instância única
+
+O design original planejava Redis pub/sub para SSE (compatível com múltiplas VMs). Como o Render free usa uma única instância, `asyncio.Queue` em memória é suficiente e mais simples. A conexão SSE é persistente e o Render roteia sempre para a mesma VM.
+
+Se no futuro houver múltiplas instâncias, substituir `SSEManager` por Redis pub/sub sem mudar a interface.
+
+### 13.7 Idempotência sem injeção de dependência
+
+O design previa Redis como dependency injetável. Na implementação, usou-se singleton lazy:
+
+```python
+_redis: aioredis.Redis | None = None
+
+def get_redis() -> aioredis.Redis:
+    global _redis
+    if _redis is None:
+        _redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+    return _redis
+```
+
+Suficiente para escala v1; migração para FastAPI `lifespan` é trivial se necessário.
+
+### 13.8 Estrutura de deps.py
+
+A autenticação de sessão foi centralizada em `core/deps.py` com dois helpers:
+
+- `get_current_session(request)` → valida cookie JWT e retorna `UUID`
+- `get_db_rls(session_id=Depends(get_current_session))` → abre `AsyncSession` com `SET LOCAL` de RLS
+
+FastAPI cacheia `get_current_session` por request, então dois `Depends()` na mesma rota não duplicam a validação.
+
+---
+
 ## Resumo Executivo
 
 ### Decisões-chave
@@ -1228,7 +1374,7 @@ Sampling: 100% WARN+ERROR, 10% INFO.
 | Anônimo via JWT HttpOnly | Sem PII, resistente a CSRF/XSS, migração v2 transparente |
 | Groq + Gemini com fallback automático | Nunca indisponibilidade total; ambos 100% free |
 | Sem busca web antes de recomendar | Trade-off latência 3-5s vs. 15s+; links validados por cron mensal |
-| Fly.io + Neon | Únicos tiers free realmente permanentes sem pause |
+| Render + Neon | Tiers free permanentes sem pause e sem cartão de crédito obrigatório |
 | Next.js 15 + FastAPI | Ecossistema maduro, free deploy ambos, SSR/SSE nativos |
 | Direção editorial cultural | Alinha com proposta de "diferentes formas de aprender" |
 | Path B para etapas 10-12 | Code review/security/devops como design review antes de implementar |
@@ -1239,8 +1385,8 @@ Sampling: 100% WARN+ERROR, 10% INFO.
 | Prompt injection | 3 camadas: moderação + delimiters + Pydantic validator |
 | Quota IA esgotada | Fallback Gemini + circuit breaker + modo manutenção |
 | Limite DB 3 GB | Purga LGPD diária + TTL 180d + alerta 80% |
-| Cold start SSE | `auto_stop_machines=false` + `min_machines_running=2` |
-| Session forgery | JWT HttpOnly SameSite=Strict (substituiu X-Session-ID) |
+| Cold start SSE | Render free tem cold start; SSE é persistente após conexão estabelecida |
+| Session forgery | JWT HttpOnly SameSite=None+Secure (substituiu X-Session-ID) |
 | Links quebrados | Prompt restrito a fontes notórias + cron mensal + aviso ao usuário |
 | LGPD | Endpoint delete + trilha `lgpd_deletions` + purga diária + política publicada |
 
@@ -1260,14 +1406,18 @@ Sampling: 100% WARN+ERROR, 10% INFO.
 | 11 — Segurança | STRIDE 38 ameaças, 3 attack trees, 5 riscos residuais aceitos |
 | 12 — DevOps | CI/CD completo, IaC, 3 camadas de observabilidade, 24-item go-live |
 
-### Próximos passos
-A fase de **design** está completa. Próximo ciclo:
-1. Criar repositório monorepo (`frontend/` + `backend/`).
-2. Scaffold inicial do backend (FastAPI + Alembic) e frontend (Next.js 15).
-3. Implementar iterativamente por módulo, começando pelo fluxo core (sessões → planos → IA).
-4. Após cada módulo, rodar `/code-reviewer` e `/security-review` reais sobre o código.
-5. Configurar pipeline CI/CD antes do primeiro deploy.
-6. Deploy em staging; validar todo o checklist go-live antes de produção.
+### Estado atual (v1 em produção)
+
+A v1 está implementada e em produção. Fluxo completo validado: sessão anônima → formulário → geração com IA → SSE em tempo real → plano com 6 categorias → marcar itens → histórico → deleção LGPD.
+
+**Pendências para v1.1**:
+1. Testes automatizados (unit + integração) — cobertura atual: 0%.
+2. Pipeline CI/CD (GitHub Actions) com lint, typecheck, testes e deploy automático.
+3. LGPD purge cron — endpoint existe, cron job ainda não configurado.
+4. Validação mensal de links (cron).
+5. Domínio próprio (`curadoria.app`) → apontar Vercel + atualizar CORS.
+6. Sentry e Better Stack configurados (DSN existe no `.env`, integração pendente).
+7. UptimeRobot — configurar 3 monitores (`/v1/health`, frontend, Upstash).
 
 ---
 
