@@ -5,14 +5,13 @@ import sentry_sdk
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from app.core.config import settings
-from app.core.errors import generic_exception_handler, problem, validation_exception_handler
+from app.core.errors import generic_exception_handler, validation_exception_handler
 from app.core.logging import configure_logging
 from app.core.rate_limit import limiter
 from app.health.router import router as health_router
@@ -93,9 +92,3 @@ app.include_router(sessoes_router, prefix=PREFIX)
 app.include_router(planos_router, prefix=PREFIX)
 app.include_router(lgpd_router, prefix=PREFIX)
 app.include_router(health_router, prefix=PREFIX)
-
-
-@app.get("/v1/sessoes/{session_id}/planos")
-async def historico_planos(session_id: str) -> dict:
-    # TODO: implementar listagem com cursor
-    return {"items": [], "next_cursor": None}

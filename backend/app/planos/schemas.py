@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -50,3 +51,14 @@ class PlanoAccepted(BaseModel):
 
 class ItemPatch(BaseModel):
     concluido: bool
+
+
+class PlanoResumo(BaseModel):
+    id: UUID
+    tema: str
+    tempo_valor: int
+    tempo_unidade: TempoUnidade
+    status: PlanStatus
+    criado_em: datetime | None = None
+
+    model_config = {"from_attributes": True}
