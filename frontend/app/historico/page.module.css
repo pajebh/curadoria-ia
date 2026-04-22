@@ -1,0 +1,119 @@
+.container {
+  max-width: var(--max-width-content);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.header {
+  margin-bottom: var(--space-8);
+}
+
+.back {
+  display: inline-block;
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  text-decoration: none;
+  margin-bottom: var(--space-4);
+  transition: color var(--transition-fast);
+}
+
+.back:hover { color: var(--color-ink); }
+
+.back:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 2px;
+}
+
+.title {
+  font-family: var(--font-serif-display);
+  font-size: var(--fs-title);
+  letter-spacing: -0.03em;
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.card {
+  display: block;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-muted);
+}
+
+.card:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.cardMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.tema {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
+  color: var(--color-ink);
+}
+
+.status {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.status.concluido {
+  background: oklch(55% 0.15 145 / 0.12);
+  color: var(--color-success);
+}
+
+.status.gerando,
+.status.pendente {
+  background: oklch(55% 0.15 240 / 0.12);
+  color: var(--color-info);
+}
+
+.status.erro {
+  background: oklch(50% 0.20 25 / 0.12);
+  color: var(--color-error);
+}
+
+.cardMeta {
+  display: flex;
+  gap: var(--space-4);
+  font-size: var(--fs-xs);
+  color: var(--color-muted);
+}
+
+.empty {
+  color: var(--color-muted);
+}
+
+.link {
+  color: var(--color-ink);
+  text-decoration: underline;
+}
+
+.more {
+  margin-top: var(--space-6);
+  display: flex;
+  justify-content: center;
+}
