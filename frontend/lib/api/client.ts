@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+const API_PREFIX = '/api/v1';
 
 export interface Problem {
   type: string;
@@ -46,7 +46,7 @@ export async function apiRequest<T>(
     headers['Idempotency-Key'] = idempotencyKey;
   }
 
-  const res = await fetch(`${API_URL}/v1${path}`, {
+  const res = await fetch(`${API_PREFIX}${path}`, {
     ...init,
     credentials: 'include',
     headers,

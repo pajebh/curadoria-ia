@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+const API_PREFIX = '/api/v1';
 
 export type StreamStage = 'moderacao' | 'gerando' | 'validando' | 'done' | 'erro';
 
@@ -22,7 +22,7 @@ export function usePlanStream(planId: string | null): PlanStreamState {
   useEffect(() => {
     if (!planId) return;
 
-    const es = new EventSource(`${API_URL}/v1/planos/${planId}/stream`, {
+    const es = new EventSource(`${API_PREFIX}/planos/${planId}/stream`, {
       withCredentials: true,
     });
 
