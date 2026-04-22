@@ -9,6 +9,11 @@ router = APIRouter(prefix="/health", tags=["health"])
 _orchestrator = IAOrchestrator(primary=GroqProvider(), fallback=GeminiProvider())
 
 
+@router.get("")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @router.get("/ia")
 async def health_ia() -> dict[str, str]:
     return await _orchestrator.health()
