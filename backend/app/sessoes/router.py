@@ -29,7 +29,7 @@ async def criar_sessao_endpoint(
         max_age=COOKIE_MAX_AGE,
         httponly=True,
         secure=True,
-        samesite="strict",
+        samesite="none",
     )
     return {"message": "Sessão criada"}
 
