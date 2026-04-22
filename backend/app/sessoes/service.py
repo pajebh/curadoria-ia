@@ -24,9 +24,10 @@ async def obter_sessao_por_hash(db: AsyncSession, token_hash: str) -> Session | 
 async def atualizar_last_seen(db: AsyncSession, session_id: UUID) -> None:
     from datetime import datetime, timezone
 
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     await db.execute(
         update(Session)
         .where(Session.id == session_id)
-        .values(last_seen_at=datetime.now(timezone.utc))
+        .values(last_seen_at=now)
     )
     await db.commit()
