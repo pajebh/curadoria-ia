@@ -42,3 +42,14 @@
 .muted {
   color: var(--color-muted);
 }
+
+.navLink {
+  font-size: var(--fs-small);
+  color: var(--color-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.navLink:hover {
+  color: var(--color-ink);
+}
