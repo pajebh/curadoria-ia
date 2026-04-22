@@ -1,3 +1,4 @@
+// Next.js 15.3.8
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
