@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,7 +10,8 @@ from app.core.deps import get_current_session, get_db_rls
 from app.planos import repository as repo
 from app.planos.schemas import PlanoResumo
 from app.sessoes.models import Session
-from app.sessoes.service import criar_sessao
+from app.sessoes.schemas import PerfilOut, PerfilUpdate
+from app.sessoes.service import criar_sessao, obter_perfil, upsert_perfil
 
 router = APIRouter(prefix="/sessoes", tags=["sessoes"])
 
@@ -47,6 +49,36 @@ async def listar_planos_sessao(
     }
 
 
+@router.get(
+    "/perfil",
+    responses={
+        200: {"model": PerfilOut},
+        204: {"description": "Nenhum perfil salvo ainda"},
+    },
+)
+async def obter_perfil_endpoint(
+    session_id: UUID = Depends(get_current_session),
+    db: AsyncSession = Depends(get_db_rls),
+) -> Response:
+    perfil = await obter_perfil(db, session_id)
+    if perfil is None:
+        return Response(status_code=204)
+    return JSONResponse(
+        status_code=200,
+        content=PerfilOut.model_validate(perfil).model_dump(mode="json"),
+    )
+
+
+@router.put("/perfil", response_model=PerfilOut)
+async def upsert_perfil_endpoint(
+    body: PerfilUpdate,
+    session_id: UUID = Depends(get_current_session),
+    db: AsyncSession = Depends(get_db_rls),
+) -> PerfilOut:
+    perfil = await upsert_perfil(db, session_id, body)
+    return PerfilOut.model_validate(perfil)
+
+
 @router.delete("/me", status_code=204)
 async def deletar_sessao(
     response: Response,
@@ -55,4 +87,4 @@ async def deletar_sessao(
 ) -> None:
     await db.execute(delete(Session).where(Session.id == session_id))
     await db.commit()
-    response.delete_cookie(COOKIE_NAME, httponly=True, samesite="strict")
+    response.delete_cookie(COOKIE_NAME, httponly=True, secure=True, samesite="lax")

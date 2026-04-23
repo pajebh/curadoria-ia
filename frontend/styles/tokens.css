@@ -84,6 +84,12 @@
   /* ─── Acessibilidade ─────────────────────────────────────────────────────── */
   --focus-ring: 0 0 0 2px var(--color-paper), 0 0 0 4px var(--color-ink);
   --min-touch-target: 44px;
+
+  /* ─── Personalização — badge Descoberta e seção colapsável ───────────────── */
+  --color-wildcard-bg:     oklch(92% 0.08 80);
+  --color-wildcard-text:   oklch(38% 0.12 80);
+  --color-wildcard-border: oklch(80% 0.1 80);
+  --color-surface-subtle:  oklch(97% 0.008 80);
 }
 
 /* Dark mode (prefers-color-scheme) */
@@ -94,6 +100,10 @@
     --color-muted:  oklch(65% 0.02 60);
     --color-border: oklch(30% 0.01 60);
     --color-surface: oklch(20% 0.01 60);
+    --color-surface-subtle:  oklch(18% 0.008 80);
+    --color-wildcard-bg:     oklch(28% 0.08 80);
+    --color-wildcard-text:   oklch(85% 0.1 80);
+    --color-wildcard-border: oklch(40% 0.1 80);
     --focus-ring: 0 0 0 2px var(--color-paper), 0 0 0 4px var(--color-ink);
   }
 }

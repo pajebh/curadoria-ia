@@ -4,12 +4,36 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from app.planos.models import CategoriaNome, PlanStatus, TempoUnidade
+from app.sessoes.models import (
+    IdiomaPref,
+    MotivacaoPref,
+    NivelConhecimento,
+    OrcamentoPref,
+    RotinaPref,
+)
+
+
+class ContextoUsuario(BaseModel):
+    nivel: NivelConhecimento | None = None
+    orcamento: OrcamentoPref | None = None
+    idioma: IdiomaPref | None = None
+    rotina: RotinaPref | None = None
+    localizacao: str | None = Field(default=None, max_length=100)
+    motivacao: MotivacaoPref | None = None
+
+    def tem_dados(self) -> bool:
+        return any(
+            v is not None
+            for v in (self.nivel, self.orcamento, self.idioma,
+                      self.rotina, self.localizacao, self.motivacao)
+        )
 
 
 class PlanoCreate(BaseModel):
     tema: str = Field(min_length=3, max_length=200)
     tempo_valor: int = Field(ge=1, le=24)
     tempo_unidade: TempoUnidade
+    contexto: ContextoUsuario | None = None
 
 
 class ItemOut(BaseModel):
@@ -19,6 +43,7 @@ class ItemOut(BaseModel):
     justificativa: str
     concluido: bool
     ordem: int
+    is_wildcard: bool
 
     model_config = {"from_attributes": True}
 

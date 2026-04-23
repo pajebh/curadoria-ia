@@ -67,3 +67,76 @@
   font-size: var(--fs-small);
   color: var(--color-error);
 }
+
+/* ── Personalização ───────────────────────────────────────────────────────── */
+
+.personalizacao {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-subtle);
+  overflow: hidden;
+}
+
+.personalizacaoTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  min-height: var(--min-touch-target);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+/* Remove default marker in all browsers */
+.personalizacaoTrigger::-webkit-details-marker { display: none; }
+.personalizacaoTrigger::marker { display: none; }
+
+.personalizacaoTrigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.triggerLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  color: var(--color-ink);
+}
+
+.triggerBadge {
+  padding: 0.125rem 0.4rem;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-regular);
+  color: var(--color-muted);
+  text-transform: lowercase;
+}
+
+.triggerCaret {
+  color: var(--color-muted);
+  flex-shrink: 0;
+  transition: transform var(--transition-normal);
+}
+
+details[open] .triggerCaret {
+  transform: rotate(180deg);
+}
+
+.personalizacaoBody {
+  padding: 0 var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+
+.personalizacaoHint {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--color-muted);
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-4);
+  line-height: 1.5;
+}

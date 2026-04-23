@@ -103,6 +103,7 @@ async def salvar_categorias_e_itens(
                 justificativa=item_gerado.justificativa,
                 concluido=False,
                 ordem=ordem_item,
+                is_wildcard=item_gerado.is_wildcard,
             )
             db.add(item)
     await db.commit()

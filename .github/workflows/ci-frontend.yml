@@ -93,11 +93,18 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Build app (required for npm run start)
+        run: npm run build
+        env:
+          API_URL: http://localhost:8000
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E tests
         run: npm run test:e2e
         env:
+          CI: 'true'
           API_URL: http://localhost:8000
           NEXT_PUBLIC_API_URL: http://localhost:8000

@@ -23,6 +23,7 @@ export interface PlanItem {
   justificativa: string;
   concluido: boolean;
   ordem: number;
+  is_wildcard: boolean;
 }
 
 export interface PlanCategory {
@@ -104,6 +105,14 @@ export function CategoriaAccordion({ planId, categorias }: CategoriaAccordionPro
                         className={`${styles.itemNome} ${concluidos[item.id] ? styles.concluido : ''}`}
                       >
                         {item.nome}
+                        {item.is_wildcard && (
+                          <span
+                            className={styles.wildcardBadge}
+                            aria-label="Fator de Descoberta"
+                          >
+                            🎲 Descoberta
+                          </span>
+                        )}
                       </a>
                       <p className={styles.justificativa}>{item.justificativa}</p>
                     </div>

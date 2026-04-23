@@ -123,12 +123,18 @@ class PlanItem(Base):
     justificativa: Mapped[str] = mapped_column(Text, nullable=False)
     concluido: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ordem: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    is_wildcard: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     categoria: Mapped["PlanCategory"] = relationship(back_populates="itens")
 
     __table_args__ = (
         CheckConstraint("link ~ '^https?://'", name="ck_items_link_url"),
         Index("idx_items_category", "category_id", "ordem"),
+        Index(
+            "idx_items_wildcard",
+            "category_id",
+            postgresql_where="is_wildcard = true",
+        ),
     )
 
 

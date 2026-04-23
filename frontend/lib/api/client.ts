@@ -70,6 +70,9 @@ export const api = {
   post: <T>(path: string, body: unknown, idempotencyKey?: string) =>
     apiRequest<T>(path, { method: 'POST', body, idempotencyKey }),
 
+  put: <T>(path: string, body: unknown) =>
+    apiRequest<T>(path, { method: 'PUT', body }),
+
   patch: <T>(path: string, body: unknown) =>
     apiRequest<T>(path, { method: 'PATCH', body }),
 

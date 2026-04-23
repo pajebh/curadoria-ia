@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Fraunces, Instrument_Serif, Inter } from 'next/font/google';
 import { SessionProvider } from '@/components/SessionProvider';
+import { QueryProvider } from '@/lib/providers/QueryProvider';
 import '@/styles/globals.css';
 
 const fraunces = Fraunces({
@@ -49,12 +50,14 @@ export default function RootLayout({
       className={`${fraunces.variable} ${instrumentSerif.variable} ${inter.variable}`}
     >
       <body>
-        <SessionProvider>
-          <a href="#main-content" className="skip-link">
-            Ir para conteúdo principal
-          </a>
-          <main id="main-content">{children}</main>
-        </SessionProvider>
+        <QueryProvider>
+          <SessionProvider>
+            <a href="#main-content" className="skip-link">
+              Ir para conteúdo principal
+            </a>
+            <main id="main-content">{children}</main>
+          </SessionProvider>
+        </QueryProvider>
       </body>
     </html>
   );

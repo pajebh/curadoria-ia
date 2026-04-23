@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.idempotency import idempotency_check, idempotency_store
 from app.ia.gemini_provider import GeminiProvider
 from app.ia.groq_provider import GroqProvider
-from app.ia.moderacao import TemaInseguroError, validar_tema
+from app.ia.moderacao import LocalizacaoInseguraError, TemaInseguroError, validar_localizacao, validar_tema
 from app.ia.orchestrator import IAOrchestrator
 from app.ia.prompt import render_user_prompt
 from app.planos.models import PlanStatus, TempoUnidade
@@ -16,7 +16,7 @@ from app.planos.repository import (
     criar_plan,
     salvar_categorias_e_itens,
 )
-from app.planos.schemas import PlanoAccepted, PlanoCreate
+from app.planos.schemas import ContextoUsuario, PlanoAccepted, PlanoCreate
 from app.planos.sse import sse_manager
 
 log = structlog.get_logger(__name__)
@@ -44,6 +44,12 @@ async def criar_plano(
     except TemaInseguroError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
+    if body.contexto and body.contexto.localizacao:
+        try:
+            validar_localizacao(body.contexto.localizacao)
+        except LocalizacaoInseguraError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     plan = await criar_plan(
         db, session_id, body.tema, body.tempo_valor, body.tempo_unidade
     )
@@ -60,6 +66,10 @@ async def criar_plano(
 async def _gerar_plano_bg(plan_id: UUID, body: PlanoCreate) -> None:
     from app.core.db import AsyncSessionLocal
 
+    contexto: ContextoUsuario | None = body.contexto if (
+        body.contexto and body.contexto.tem_dados()
+    ) else None
+
     sse_manager.publish(
         str(plan_id), {"event": "progress", "stage": "moderacao", "percent": 10}
     )
@@ -75,8 +85,16 @@ async def _gerar_plano_bg(plan_id: UUID, body: PlanoCreate) -> None:
                 if isinstance(body.tempo_unidade, TempoUnidade)
                 else str(body.tempo_unidade)
             )
-            user_prompt = render_user_prompt(body.tema, body.tempo_valor, tempo_unidade)
+            user_prompt = render_user_prompt(
+                body.tema, body.tempo_valor, tempo_unidade, contexto
+            )
             plano_gerado, provider = await _orchestrator.gerar_plano(body.tema, user_prompt)
+
+            # If no contexto was provided, zero out any wildcards the LLM may have added
+            if contexto is None:
+                for cat in plano_gerado.categorias:
+                    for item in cat.itens:
+                        item.is_wildcard = False
 
             sse_manager.publish(
                 str(plan_id), {"event": "progress", "stage": "validando", "percent": 80}
@@ -86,7 +104,8 @@ async def _gerar_plano_bg(plan_id: UUID, body: PlanoCreate) -> None:
             await atualizar_status(db, plan_id, PlanStatus.concluido, provider)
 
             sse_manager.publish(str(plan_id), {"event": "done", "percent": 100})
-            log.info("plano_gerado", plan_id=str(plan_id), provider=provider)
+            log.info("plano_gerado", plan_id=str(plan_id), provider=provider,
+                     com_contexto=contexto is not None)
 
         except Exception as exc:
             log.error("plano_erro", plan_id=str(plan_id), error=str(exc))

@@ -5,6 +5,10 @@ class TemaInseguroError(ValueError):
     pass
 
 
+class LocalizacaoInseguraError(ValueError):
+    pass
+
+
 PADROES_INJECTION = [
     r"ignore\s+(previous|all|above|instructions)",
     r"disregard\s+(previous|all|above|instructions)",
@@ -38,4 +42,16 @@ def validar_tema(tema: str) -> None:
             raise TemaInseguroError(
                 "O tema contém padrões não permitidos. "
                 "Por favor, descreva o assunto que deseja aprender."
+            )
+
+
+def validar_localizacao(localizacao: str) -> None:
+    if len(localizacao) > 100:
+        raise LocalizacaoInseguraError("Localização muito longa (máximo 100 caracteres)")
+
+    for pattern in _compiled:
+        if pattern.search(localizacao):
+            raise LocalizacaoInseguraError(
+                "A localização contém padrões não permitidos. "
+                "Por favor, informe apenas cidade e estado."
             )
