@@ -104,7 +104,13 @@ export function PlanoForm() {
 
       // Fire-and-forget: save profile fields (never saves localizacao)
       if (contexto) {
-        const { localizacao: _loc, ...perfilData } = contexto;
+        const perfilData = {
+          nivel: contexto.nivel,
+          orcamento: contexto.orcamento,
+          idioma: contexto.idioma,
+          rotina: contexto.rotina,
+          motivacao: contexto.motivacao,
+        };
         const hasPerfilFields = Object.values(perfilData).some((v) => v !== undefined);
         if (hasPerfilFields) upsert(perfilData);
       }
