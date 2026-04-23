@@ -37,7 +37,7 @@ class SSEManager:
                 event_name = event.get("event", "message")
                 data = json.dumps({k: v for k, v in event.items() if k != "event"})
                 yield f"event: {event_name}\ndata: {data}\n\n"
-                if event_name in ("done", "erro"):
+                if event_name in ("complete", "erro"):
                     break
         finally:
             self.remove(plan_id)

@@ -9,6 +9,7 @@ from app.ia.schemas import PlanoGerado
 from app.planos.models import (
     CategoriaNome,
     IAProvider,
+    LinkStatus,
     Plan,
     PlanCategory,
     PlanItem,
@@ -132,3 +133,47 @@ async def atualizar_item(
     await db.commit()
     await db.refresh(item)
     return item
+
+
+async def atualizar_link_item(
+    db: AsyncSession,
+    item_id: UUID,
+    status: LinkStatus,
+    novo_link: str | None = None,
+) -> None:
+    item = await db.get(PlanItem, item_id)
+    if item is None:
+        return
+    item.link_status = status
+    if novo_link is not None:
+        item.link = novo_link
+    await db.commit()
+
+
+async def listar_itens_plano(db: AsyncSession, plan_id: UUID) -> list[PlanItem]:
+    result = await db.execute(
+        select(PlanItem)
+        .join(PlanCategory, PlanItem.category_id == PlanCategory.id)
+        .where(PlanCategory.plan_id == plan_id)
+    )
+    return list(result.scalars())
+
+
+async def listar_itens_para_revalidar(
+    db: AsyncSession,
+    limite: int = 500,
+) -> list[PlanItem]:
+    """Items from completed plans (last 180d) with valid/repaired status — for weekly cron."""
+    cutoff = _utcnow() - __import__("datetime").timedelta(days=180)
+    result = await db.execute(
+        select(PlanItem)
+        .join(PlanCategory, PlanItem.category_id == PlanCategory.id)
+        .join(Plan, PlanCategory.plan_id == Plan.id)
+        .where(
+            Plan.status == PlanStatus.concluido,
+            Plan.criado_em >= cutoff,
+            PlanItem.link_status.in_([LinkStatus.valid, LinkStatus.repaired]),
+        )
+        .limit(limite)
+    )
+    return list(result.scalars())

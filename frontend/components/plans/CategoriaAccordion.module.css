@@ -166,6 +166,16 @@
   line-height: 1.5;
 }
 
+.brokenBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.35rem;
+  color: oklch(50% 0.15 30);
+  opacity: 0.75;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 .wildcardBadge {
   display: inline-flex;
   align-items: center;

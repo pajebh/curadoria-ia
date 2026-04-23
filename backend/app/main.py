@@ -16,6 +16,7 @@ from app.core.logging import configure_logging
 from app.core.rate_limit import limiter
 from app.health.router import router as health_router
 from app.lgpd.router import router as lgpd_router
+from app.links.cron import start_scheduler, stop_scheduler
 from app.planos.router import router as planos_router
 from app.sessoes.router import router as sessoes_router
 
@@ -27,8 +28,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     configure_logging()
     if settings.sentry_dsn:
         sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment)
+    start_scheduler()
     log.info("startup", environment=settings.environment)
     yield
+    stop_scheduler()
     log.info("shutdown")
 
 

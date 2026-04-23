@@ -24,6 +24,15 @@ log = structlog.get_logger(__name__)
 _orchestrator = IAOrchestrator(primary=GroqProvider(), fallback=GeminiProvider())
 
 
+async def _validar_links_bg(plan_id: UUID, tema: str) -> None:
+    from app.links.validator import validar_e_reparar_plano
+    try:
+        await validar_e_reparar_plano(plan_id, tema)
+    except Exception as exc:
+        log.error("validar_links_erro", plan_id=str(plan_id), error=str(exc))
+        sse_manager.publish(str(plan_id), {"event": "complete"})
+
+
 async def criar_plano(
     db: AsyncSession,
     session_id: UUID,
@@ -107,6 +116,9 @@ async def _gerar_plano_bg(plan_id: UUID, body: PlanoCreate) -> None:
             log.info("plano_gerado", plan_id=str(plan_id), provider=provider,
                      com_contexto=contexto is not None)
 
+            # Validate and repair links after plan is done (keeps SSE open until complete)
+            await _validar_links_bg(plan_id, body.tema)
+
         except Exception as exc:
             log.error("plano_erro", plan_id=str(plan_id), error=str(exc))
             try:
@@ -116,5 +128,4 @@ async def _gerar_plano_bg(plan_id: UUID, body: PlanoCreate) -> None:
             sse_manager.publish(
                 str(plan_id), {"event": "erro", "message": "Erro na geração do plano"}
             )
-        finally:
             sse_manager.publish(str(plan_id), None)

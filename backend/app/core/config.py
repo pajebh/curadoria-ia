@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # IA
     groq_api_key: str = ""
     gemini_api_key: str = ""
+    brave_api_key: str = ""
 
     # App
     environment: str = "development"

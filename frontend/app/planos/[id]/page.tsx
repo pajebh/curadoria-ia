@@ -7,6 +7,7 @@ import { api } from '@/lib/api/client';
 import { SSEProgress } from '@/components/plans/SSEProgress';
 import { CategoriaAccordion } from '@/components/plans/CategoriaAccordion';
 import type { PlanCategory } from '@/components/plans/CategoriaAccordion';
+import type { LinkCheckUpdate } from '@/lib/sse/usePlanStream';
 import styles from './page.module.css';
 
 type PlanStatus = 'pendente' | 'gerando' | 'concluido' | 'erro';
@@ -27,6 +28,7 @@ export default function PlanoPage() {
   const [plano, setPlano] = useState<Plano | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [linkUpdates, setLinkUpdates] = useState<LinkCheckUpdate[]>([]);
 
   const fetchPlano = useCallback(async () => {
     try {
@@ -79,7 +81,7 @@ export default function PlanoPage() {
       </div>
 
       {isGenerating && (
-        <SSEProgress planId={plano.id} onDone={handleDone} />
+        <SSEProgress planId={plano.id} onDone={handleDone} onLinkUpdate={(u) => setLinkUpdates(prev => [...prev, u])} />
       )}
 
       {plano.status === 'erro' && (
@@ -90,7 +92,7 @@ export default function PlanoPage() {
       )}
 
       {plano.status === 'concluido' && plano.categorias.length > 0 && (
-        <CategoriaAccordion planId={plano.id} categorias={plano.categorias} />
+        <CategoriaAccordion planId={plano.id} categorias={plano.categorias} linkUpdates={linkUpdates} />
       )}
     </div>
   );

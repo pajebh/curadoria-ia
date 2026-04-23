@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.planos.models import CategoriaNome, PlanStatus, TempoUnidade
+from app.planos.models import CategoriaNome, LinkStatus, PlanStatus, TempoUnidade
 from app.sessoes.models import (
     IdiomaPref,
     MotivacaoPref,
@@ -44,6 +44,7 @@ class ItemOut(BaseModel):
     concluido: bool
     ordem: int
     is_wildcard: bool
+    link_status: LinkStatus = LinkStatus.unchecked
 
     model_config = {"from_attributes": True}
 

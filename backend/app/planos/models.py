@@ -47,6 +47,13 @@ class IAProvider(str, enum.Enum):
     gemini = "gemini"
 
 
+class LinkStatus(str, enum.Enum):
+    unchecked = "unchecked"
+    valid = "valid"
+    broken = "broken"
+    repaired = "repaired"
+
+
 class Plan(Base):
     __tablename__ = "plans"
 
@@ -124,6 +131,9 @@ class PlanItem(Base):
     concluido: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ordem: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     is_wildcard: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    link_status: Mapped[LinkStatus] = mapped_column(
+        Enum(LinkStatus, name="link_status"), nullable=False, default=LinkStatus.unchecked
+    )
 
     categoria: Mapped["PlanCategory"] = relationship(back_populates="itens")
 
@@ -134,6 +144,11 @@ class PlanItem(Base):
             "idx_items_wildcard",
             "category_id",
             postgresql_where="is_wildcard = true",
+        ),
+        Index(
+            "idx_items_broken",
+            "id",
+            postgresql_where="link_status = 'broken'",
         ),
     )
 

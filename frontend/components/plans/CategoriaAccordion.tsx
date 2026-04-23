@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as Accordion from '@radix-ui/react-accordion';
 import * as Checkbox from '@radix-ui/react-checkbox';
-import { CaretDown, Check } from '@phosphor-icons/react';
+import { CaretDown, Check, Warning } from '@phosphor-icons/react';
 import { api } from '@/lib/api/client';
+import type { LinkCheckUpdate } from '@/lib/sse/usePlanStream';
 import styles from './CategoriaAccordion.module.css';
 
 const CATEGORIA_LABELS: Record<string, string> = {
@@ -24,6 +25,7 @@ export interface PlanItem {
   concluido: boolean;
   ordem: number;
   is_wildcard: boolean;
+  link_status?: 'unchecked' | 'valid' | 'broken' | 'repaired';
 }
 
 export interface PlanCategory {
@@ -36,14 +38,30 @@ export interface PlanCategory {
 interface CategoriaAccordionProps {
   planId: string;
   categorias: PlanCategory[];
+  linkUpdates?: LinkCheckUpdate[];
 }
 
-export function CategoriaAccordion({ planId, categorias }: CategoriaAccordionProps) {
+export function CategoriaAccordion({ planId, categorias, linkUpdates = [] }: CategoriaAccordionProps) {
   const [concluidos, setConcluidos] = useState<Record<string, boolean>>(
     () => Object.fromEntries(
       categorias.flatMap(c => c.itens.map(i => [i.id, i.concluido]))
     )
   );
+  const [itemLinks, setItemLinks] = useState<Record<string, string>>({});
+  const [itemStatuses, setItemStatuses] = useState<Record<string, string>>(
+    () => Object.fromEntries(
+      categorias.flatMap(c => c.itens.map(i => [i.id, i.link_status ?? 'unchecked']))
+    )
+  );
+
+  useEffect(() => {
+    linkUpdates.forEach(u => {
+      setItemStatuses(prev => ({ ...prev, [u.item_id]: u.status }));
+      if (u.link) {
+        setItemLinks(prev => ({ ...prev, [u.item_id]: u.link! }));
+      }
+    });
+  }, [linkUpdates]);
 
   async function toggleItem(itemId: string, checked: boolean) {
     setConcluidos(prev => ({ ...prev, [itemId]: checked }));
@@ -99,7 +117,7 @@ export function CategoriaAccordion({ planId, categorias }: CategoriaAccordionPro
 
                     <div className={styles.itemContent}>
                       <a
-                        href={item.link}
+                        href={itemLinks[item.id] ?? item.link}
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`${styles.itemNome} ${concluidos[item.id] ? styles.concluido : ''}`}
@@ -111,6 +129,15 @@ export function CategoriaAccordion({ planId, categorias }: CategoriaAccordionPro
                             aria-label="Fator de Descoberta"
                           >
                             🎲 Descoberta
+                          </span>
+                        )}
+                        {itemStatuses[item.id] === 'broken' && (
+                          <span
+                            className={styles.brokenBadge}
+                            aria-label="Link indisponível"
+                            title="Não foi possível verificar este link"
+                          >
+                            <Warning weight="fill" size={14} aria-hidden="true" />
                           </span>
                         )}
                       </a>

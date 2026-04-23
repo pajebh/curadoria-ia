@@ -6,18 +6,28 @@ const API_PREFIX = '/api/v1';
 
 export type StreamStage = 'moderacao' | 'gerando' | 'validando' | 'done' | 'erro';
 
+export interface LinkCheckUpdate {
+  item_id: string;
+  status: 'valid' | 'repaired' | 'broken';
+  link?: string;
+}
+
 export interface PlanStreamState {
   progress: number;
   stage: StreamStage | undefined;
   done: boolean;
+  complete: boolean;
   error: string | undefined;
+  linkUpdates: LinkCheckUpdate[];
 }
 
 export function usePlanStream(planId: string | null): PlanStreamState {
   const [progress, setProgress] = useState(0);
   const [stage, setStage] = useState<StreamStage | undefined>(undefined);
   const [done, setDone] = useState(false);
+  const [complete, setComplete] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
+  const [linkUpdates, setLinkUpdates] = useState<LinkCheckUpdate[]>([]);
 
   useEffect(() => {
     if (!planId) return;
@@ -40,6 +50,20 @@ export function usePlanStream(planId: string | null): PlanStreamState {
       setProgress(100);
       setStage('done');
       setDone(true);
+      // stream stays open for link_check events — closed by 'complete'
+    });
+
+    es.addEventListener('link_check', (e: MessageEvent<string>) => {
+      try {
+        const data = JSON.parse(e.data) as LinkCheckUpdate;
+        setLinkUpdates(prev => [...prev, data]);
+      } catch {
+        // ignora parse errors
+      }
+    });
+
+    es.addEventListener('complete', () => {
+      setComplete(true);
       es.close();
     });
 
@@ -52,12 +76,11 @@ export function usePlanStream(planId: string | null): PlanStreamState {
       }
       setStage('erro');
       setDone(true);
+      setComplete(true);
       es.close();
     });
 
     es.onerror = () => {
-      // Fecha a conexão se houver erro de rede
-      // O componente pode fazer polling como fallback
       es.close();
     };
 
@@ -66,5 +89,5 @@ export function usePlanStream(planId: string | null): PlanStreamState {
     };
   }, [planId]);
 
-  return { progress, stage, done, error };
+  return { progress, stage, done, complete, error, linkUpdates };
 }
