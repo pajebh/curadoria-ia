@@ -6,6 +6,18 @@ import pytest
 from app.planos.models import LinkStatus
 
 
+def _make_item(link: str = "https://example.com", nome: str = "Item") -> MagicMock:
+    item = MagicMock()
+    item.id = uuid4()
+    item.link = link
+    item.nome = nome
+    item.justificativa = "Justificativa de teste"
+    item.categoria = MagicMock()
+    item.categoria.nome = MagicMock()
+    item.categoria.nome.value = "formal"
+    return item
+
+
 # --- _head_ok ---
 
 @pytest.mark.asyncio
@@ -69,15 +81,11 @@ async def test_validar_item_link_valido() -> None:
     from app.links.validator import _validar_item
     import asyncio
 
-    item = MagicMock()
-    item.id = uuid4()
-    item.link = "https://example.com"
-    item.nome = "Curso de Python"
-
+    item = _make_item()
     sem = asyncio.Semaphore(5)
 
     with patch("app.links.validator._head_ok", AsyncMock(return_value=True)):
-        item_id, status, novo_link = await _validar_item(item, "Python", "", sem)
+        item_id, status, novo_link = await _validar_item(item, "Python", sem)
 
     assert status == LinkStatus.valid
     assert novo_link is None
@@ -85,64 +93,56 @@ async def test_validar_item_link_valido() -> None:
 
 
 @pytest.mark.asyncio
-async def test_validar_item_link_quebrado_sem_brave_key() -> None:
+async def test_validar_item_link_quebrado_ia_repara() -> None:
     from app.links.validator import _validar_item
     import asyncio
 
-    item = MagicMock()
-    item.id = uuid4()
-    item.link = "https://broken.example.com"
-    item.nome = "Curso Inexistente"
-
+    item = _make_item(link="https://broken.example.com", nome="Curso de Python")
     sem = asyncio.Semaphore(5)
-
-    with patch("app.links.validator._head_ok", AsyncMock(return_value=False)):
-        item_id, status, novo_link = await _validar_item(item, "Python", "", sem)
-
-    assert status == LinkStatus.broken
-    assert novo_link is None
-
-
-@pytest.mark.asyncio
-async def test_validar_item_link_quebrado_brave_repara() -> None:
-    from app.links.validator import _validar_item
-    import asyncio
-
-    item = MagicMock()
-    item.id = uuid4()
-    item.link = "https://broken.example.com"
-    item.nome = "Curso de Python"
-
-    sem = asyncio.Semaphore(5)
-    novo_url = "https://coursera.org/learn/python"
+    novo_url = "https://docs.python.org/3/tutorial/"
 
     with (
-        patch("app.links.validator._head_ok", AsyncMock(return_value=False)),
-        patch("app.links.validator.buscar_url_substituta", AsyncMock(return_value=novo_url)),
+        patch("app.links.validator._head_ok", AsyncMock(side_effect=[False, True])),
+        patch("app.links.validator.buscar_substituto_ia", AsyncMock(return_value=novo_url)),
     ):
-        item_id, status, novo_link = await _validar_item(item, "Python", "fake-key", sem, "fake-cx")
+        item_id, status, novo_link = await _validar_item(item, "Python", sem)
 
     assert status == LinkStatus.repaired
     assert novo_link == novo_url
 
 
 @pytest.mark.asyncio
-async def test_validar_item_link_quebrado_brave_falha() -> None:
+async def test_validar_item_link_quebrado_ia_falha() -> None:
     from app.links.validator import _validar_item
     import asyncio
 
-    item = MagicMock()
-    item.id = uuid4()
-    item.link = "https://broken.example.com"
-    item.nome = "Curso Inexistente"
-
+    item = _make_item(link="https://broken.example.com", nome="Curso Inexistente")
     sem = asyncio.Semaphore(5)
 
     with (
         patch("app.links.validator._head_ok", AsyncMock(return_value=False)),
-        patch("app.links.validator.buscar_url_substituta", AsyncMock(return_value=None)),
+        patch("app.links.validator.buscar_substituto_ia", AsyncMock(return_value=None)),
     ):
-        item_id, status, novo_link = await _validar_item(item, "Python", "fake-key", sem, "fake-cx")
+        item_id, status, novo_link = await _validar_item(item, "Python", sem)
+
+    assert status == LinkStatus.broken
+    assert novo_link is None
+
+
+@pytest.mark.asyncio
+async def test_validar_item_link_quebrado_substituto_tambem_quebrado() -> None:
+    from app.links.validator import _validar_item
+    import asyncio
+
+    item = _make_item(link="https://broken.example.com", nome="Curso Inexistente")
+    sem = asyncio.Semaphore(5)
+    substituto = "https://also-broken.example.com"
+
+    with (
+        patch("app.links.validator._head_ok", AsyncMock(return_value=False)),
+        patch("app.links.validator.buscar_substituto_ia", AsyncMock(return_value=substituto)),
+    ):
+        item_id, status, novo_link = await _validar_item(item, "Python", sem)
 
     assert status == LinkStatus.broken
     assert novo_link is None

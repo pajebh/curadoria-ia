@@ -22,8 +22,6 @@ class Settings(BaseSettings):
     # IA
     groq_api_key: str = ""
     gemini_api_key: str = ""
-    google_cse_key: str = ""
-    google_cse_id: str = ""
 
     # App
     environment: str = "development"

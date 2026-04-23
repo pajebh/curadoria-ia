@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-from urllib.parse import urlparse
 from uuid import UUID
 
 import httpx
 import structlog
 
-from app.core.config import settings
-from app.links.google_search import buscar_url_substituta
+from app.links.repair import buscar_substituto_ia
 from app.planos.models import LinkStatus, PlanItem
 from app.planos.sse import sse_manager
 
@@ -16,7 +14,7 @@ log = structlog.get_logger(__name__)
 
 _HEAD_TIMEOUT = 5.0
 _MAX_REDIRECTS = 3
-_CONCURRENCY = 5  # simultaneous HEAD requests per plan
+_CONCURRENCY = 5
 
 
 async def _head_ok(url: str) -> bool:
@@ -36,30 +34,26 @@ async def _head_ok(url: str) -> bool:
 async def _validar_item(
     item: PlanItem,
     tema: str,
-    cse_key: str,
     sem: asyncio.Semaphore,
-    cse_id: str = "",
 ) -> tuple[UUID, LinkStatus, str | None]:
     """Validate one item. Returns (item_id, new_status, new_link_or_None)."""
     async with sem:
-        ok = await _head_ok(item.link)
-        if ok:
+        if await _head_ok(item.link):
             return item.id, LinkStatus.valid, None
 
-        # HEAD failed — try Google CSE repair
-        if cse_key and cse_id:
-            dominio = urlparse(item.link).netloc or None
-            novo_link = await buscar_url_substituta(
-                cse_key, cse_id, item.nome, tema, dominio
+        # HEAD failed — ask AI for a replacement, then validate the suggestion
+        categoria_nome = item.categoria.nome.value
+        novo_link = await buscar_substituto_ia(
+            item.nome, tema, categoria_nome, item.justificativa
+        )
+        if novo_link and await _head_ok(novo_link):
+            log.info(
+                "link_reparado",
+                item_id=str(item.id),
+                original=item.link,
+                novo=novo_link,
             )
-            if novo_link:
-                log.info(
-                    "link_reparado",
-                    item_id=str(item.id),
-                    original=item.link,
-                    novo=novo_link,
-                )
-                return item.id, LinkStatus.repaired, novo_link
+            return item.id, LinkStatus.repaired, novo_link
 
         log.warning("link_quebrado", item_id=str(item.id), url=item.link)
         return item.id, LinkStatus.broken, None
@@ -70,8 +64,6 @@ async def validar_e_reparar_plano(plan_id: UUID, tema: str) -> None:
     from app.core.db import AsyncSessionLocal
     from app.planos.repository import atualizar_link_item, listar_itens_plano
 
-    cse_key = settings.google_cse_key
-    cse_id = settings.google_cse_id
     sem = asyncio.Semaphore(_CONCURRENCY)
 
     async with AsyncSessionLocal() as db:
@@ -81,10 +73,7 @@ async def validar_e_reparar_plano(plan_id: UUID, tema: str) -> None:
         sse_manager.publish(str(plan_id), {"event": "complete"})
         return
 
-    tasks = [
-        _validar_item(item, tema, cse_key, sem, cse_id)
-        for item in itens
-    ]
+    tasks = [_validar_item(item, tema, sem) for item in itens]
     resultados = await asyncio.gather(*tasks, return_exceptions=True)
 
     async with AsyncSessionLocal() as db:
@@ -108,15 +97,12 @@ async def validar_e_reparar_plano(plan_id: UUID, tema: str) -> None:
 
 
 async def revalidar_itens(itens: list[PlanItem], tema: str) -> None:
-    """Re-validate a list of items (used by weekly cron). No SSE — updates DB directly."""
+    """Re-validate items (used by weekly cron). No SSE — updates DB directly."""
     from app.core.db import AsyncSessionLocal
     from app.planos.repository import atualizar_link_item
 
-    cse_key = settings.google_cse_key
-    cse_id = settings.google_cse_id
     sem = asyncio.Semaphore(_CONCURRENCY)
-
-    tasks = [_validar_item(item, tema, cse_key, sem, cse_id) for item in itens]
+    tasks = [_validar_item(item, tema, sem) for item in itens]
     resultados = await asyncio.gather(*tasks, return_exceptions=True)
 
     async with AsyncSessionLocal() as db:

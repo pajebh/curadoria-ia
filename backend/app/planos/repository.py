@@ -155,6 +155,7 @@ async def listar_itens_plano(db: AsyncSession, plan_id: UUID) -> list[PlanItem]:
         select(PlanItem)
         .join(PlanCategory, PlanItem.category_id == PlanCategory.id)
         .where(PlanCategory.plan_id == plan_id)
+        .options(selectinload(PlanItem.categoria))
     )
     return list(result.scalars())
 
@@ -174,6 +175,7 @@ async def listar_itens_para_revalidar(
             Plan.criado_em >= cutoff,
             PlanItem.link_status.in_([LinkStatus.valid, LinkStatus.repaired]),
         )
+        .options(selectinload(PlanItem.categoria))
         .limit(limite)
     )
     return list(result.scalars())
