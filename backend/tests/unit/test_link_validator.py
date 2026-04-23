@@ -120,7 +120,7 @@ async def test_validar_item_link_quebrado_brave_repara() -> None:
         patch("app.links.validator._head_ok", AsyncMock(return_value=False)),
         patch("app.links.validator.buscar_url_substituta", AsyncMock(return_value=novo_url)),
     ):
-        item_id, status, novo_link = await _validar_item(item, "Python", "fake-key", sem)
+        item_id, status, novo_link = await _validar_item(item, "Python", "fake-key", sem, "fake-cx")
 
     assert status == LinkStatus.repaired
     assert novo_link == novo_url
@@ -142,7 +142,7 @@ async def test_validar_item_link_quebrado_brave_falha() -> None:
         patch("app.links.validator._head_ok", AsyncMock(return_value=False)),
         patch("app.links.validator.buscar_url_substituta", AsyncMock(return_value=None)),
     ):
-        item_id, status, novo_link = await _validar_item(item, "Python", "fake-key", sem)
+        item_id, status, novo_link = await _validar_item(item, "Python", "fake-key", sem, "fake-cx")
 
     assert status == LinkStatus.broken
     assert novo_link is None

@@ -8,7 +8,7 @@ import httpx
 import structlog
 
 from app.core.config import settings
-from app.links.brave_search import buscar_url_substituta
+from app.links.google_search import buscar_url_substituta
 from app.planos.models import LinkStatus, PlanItem
 from app.planos.sse import sse_manager
 
@@ -36,8 +36,9 @@ async def _head_ok(url: str) -> bool:
 async def _validar_item(
     item: PlanItem,
     tema: str,
-    brave_api_key: str,
+    cse_key: str,
     sem: asyncio.Semaphore,
+    cse_id: str = "",
 ) -> tuple[UUID, LinkStatus, str | None]:
     """Validate one item. Returns (item_id, new_status, new_link_or_None)."""
     async with sem:
@@ -45,11 +46,11 @@ async def _validar_item(
         if ok:
             return item.id, LinkStatus.valid, None
 
-        # HEAD failed — try Brave Search repair
-        if brave_api_key:
+        # HEAD failed — try Google CSE repair
+        if cse_key and cse_id:
             dominio = urlparse(item.link).netloc or None
             novo_link = await buscar_url_substituta(
-                brave_api_key, item.nome, tema, dominio
+                cse_key, cse_id, item.nome, tema, dominio
             )
             if novo_link:
                 log.info(
@@ -69,7 +70,8 @@ async def validar_e_reparar_plano(plan_id: UUID, tema: str) -> None:
     from app.core.db import AsyncSessionLocal
     from app.planos.repository import atualizar_link_item, listar_itens_plano
 
-    brave_key = settings.brave_api_key
+    cse_key = settings.google_cse_key
+    cse_id = settings.google_cse_id
     sem = asyncio.Semaphore(_CONCURRENCY)
 
     async with AsyncSessionLocal() as db:
@@ -80,7 +82,7 @@ async def validar_e_reparar_plano(plan_id: UUID, tema: str) -> None:
         return
 
     tasks = [
-        _validar_item(item, tema, brave_key, sem)
+        _validar_item(item, tema, cse_key, sem, cse_id)
         for item in itens
     ]
     resultados = await asyncio.gather(*tasks, return_exceptions=True)
@@ -110,10 +112,11 @@ async def revalidar_itens(itens: list[PlanItem], tema: str) -> None:
     from app.core.db import AsyncSessionLocal
     from app.planos.repository import atualizar_link_item
 
-    brave_key = settings.brave_api_key
+    cse_key = settings.google_cse_key
+    cse_id = settings.google_cse_id
     sem = asyncio.Semaphore(_CONCURRENCY)
 
-    tasks = [_validar_item(item, tema, brave_key, sem) for item in itens]
+    tasks = [_validar_item(item, tema, cse_key, sem, cse_id) for item in itens]
     resultados = await asyncio.gather(*tasks, return_exceptions=True)
 
     async with AsyncSessionLocal() as db:
