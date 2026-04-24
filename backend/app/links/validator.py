@@ -6,7 +6,7 @@ from uuid import UUID
 import httpx
 import structlog
 
-from app.links.repair import buscar_substituto_ia
+from app.links.repair import gerar_url_busca
 from app.planos.models import LinkStatus, PlanItem
 from app.planos.sse import sse_manager
 
@@ -41,22 +41,16 @@ async def _validar_item(
         if await _head_ok(item.link):
             return item.id, LinkStatus.valid, None
 
-        # HEAD failed — ask AI for a replacement, then validate the suggestion
+        # HEAD failed — build a deterministic search URL (always valid)
         categoria_nome = item.categoria.nome.value
-        novo_link = await buscar_substituto_ia(
-            item.nome, tema, categoria_nome, item.justificativa
+        novo_link = gerar_url_busca(item.nome, tema, categoria_nome)
+        log.info(
+            "link_substituido_por_busca",
+            item_id=str(item.id),
+            original=item.link,
+            busca=novo_link,
         )
-        if novo_link and await _head_ok(novo_link):
-            log.info(
-                "link_reparado",
-                item_id=str(item.id),
-                original=item.link,
-                novo=novo_link,
-            )
-            return item.id, LinkStatus.repaired, novo_link
-
-        log.warning("link_quebrado", item_id=str(item.id), url=item.link)
-        return item.id, LinkStatus.broken, None
+        return item.id, LinkStatus.repaired, novo_link
 
 
 async def validar_e_reparar_plano(plan_id: UUID, tema: str) -> None:

@@ -74,6 +74,30 @@ async def test_head_ok_retorna_false_em_excecao() -> None:
     assert result is False
 
 
+# --- gerar_url_busca ---
+
+def test_gerar_url_busca_formal() -> None:
+    from app.links.repair import gerar_url_busca
+
+    url = gerar_url_busca("Técnica de Saque", "Beach Tennis", "formal")
+    assert "youtube.com/results" in url
+    assert "Beach+Tennis" in url or "Beach Tennis" in url.replace("+", " ")
+
+
+def test_gerar_url_busca_audio() -> None:
+    from app.links.repair import gerar_url_busca
+
+    url = gerar_url_busca("Podcast de Esporte", "Beach Tennis", "audio")
+    assert "spotify.com/search" in url
+
+
+def test_gerar_url_busca_categoria_desconhecida() -> None:
+    from app.links.repair import gerar_url_busca
+
+    url = gerar_url_busca("Qualquer Item", "Tema", "desconhecida")
+    assert url.startswith("https://www.google.com/search")
+
+
 # --- _validar_item ---
 
 @pytest.mark.asyncio
@@ -93,56 +117,17 @@ async def test_validar_item_link_valido() -> None:
 
 
 @pytest.mark.asyncio
-async def test_validar_item_link_quebrado_ia_repara() -> None:
+async def test_validar_item_link_quebrado_gera_url_busca() -> None:
     from app.links.validator import _validar_item
     import asyncio
 
     item = _make_item(link="https://broken.example.com", nome="Curso de Python")
     sem = asyncio.Semaphore(5)
-    novo_url = "https://docs.python.org/3/tutorial/"
 
-    with (
-        patch("app.links.validator._head_ok", AsyncMock(side_effect=[False, True])),
-        patch("app.links.validator.buscar_substituto_ia", AsyncMock(return_value=novo_url)),
-    ):
+    with patch("app.links.validator._head_ok", AsyncMock(return_value=False)):
         item_id, status, novo_link = await _validar_item(item, "Python", sem)
 
     assert status == LinkStatus.repaired
-    assert novo_link == novo_url
-
-
-@pytest.mark.asyncio
-async def test_validar_item_link_quebrado_ia_falha() -> None:
-    from app.links.validator import _validar_item
-    import asyncio
-
-    item = _make_item(link="https://broken.example.com", nome="Curso Inexistente")
-    sem = asyncio.Semaphore(5)
-
-    with (
-        patch("app.links.validator._head_ok", AsyncMock(return_value=False)),
-        patch("app.links.validator.buscar_substituto_ia", AsyncMock(return_value=None)),
-    ):
-        item_id, status, novo_link = await _validar_item(item, "Python", sem)
-
-    assert status == LinkStatus.broken
-    assert novo_link is None
-
-
-@pytest.mark.asyncio
-async def test_validar_item_link_quebrado_substituto_tambem_quebrado() -> None:
-    from app.links.validator import _validar_item
-    import asyncio
-
-    item = _make_item(link="https://broken.example.com", nome="Curso Inexistente")
-    sem = asyncio.Semaphore(5)
-    substituto = "https://also-broken.example.com"
-
-    with (
-        patch("app.links.validator._head_ok", AsyncMock(return_value=False)),
-        patch("app.links.validator.buscar_substituto_ia", AsyncMock(return_value=substituto)),
-    ):
-        item_id, status, novo_link = await _validar_item(item, "Python", sem)
-
-    assert status == LinkStatus.broken
-    assert novo_link is None
+    assert novo_link is not None
+    assert novo_link.startswith("https://")
+    assert "python" in novo_link.lower() or "Python" in novo_link
