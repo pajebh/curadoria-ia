@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     gemini_api_key: str = ""
 
+    # Enriquecimento de links
+    youtube_api_key: str = ""
+
     # App
     environment: str = "development"
     log_level: str = "INFO"
